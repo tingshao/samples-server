@@ -28,6 +28,8 @@
 
 //var http = require('http');
 var https = require('https');
+let express = require('express');
+let app = express();
 var url = require('url');
 var fs = require('fs');
 var WebSocketServer = require('websocket').server;
@@ -138,8 +140,8 @@ function sendUserListToAll() {
 // server.
 
 var httpsOptions = {
-  key: fs.readFileSync("/etc/pki/tls/private/mdn.key"),
-  cert: fs.readFileSync("/etc/pki/tls/certs/mdn.crt")
+  key: fs.readFileSync("/home/tshao/work/ssl-cert/key.pem"),
+  cert: fs.readFileSync("/home/tshao/work/ssl-cert/cert.pem")
 };
 
 // Our HTTPS server does nothing but service WebSocket
@@ -147,12 +149,14 @@ var httpsOptions = {
 // requests are handled by the main server on the box. If you
 // want to, you can return real HTML here and serve Web content.
 
-var httpsServer = https.createServer(httpsOptions, function(request, response) {
-  log("Received secure request for " + request.url);
-  response.writeHead(404);
-  response.end();
-});
+//var httpsServer = https.createServer(httpsOptions, function(request, response) {
+//  log("Received secure request for " + request.url);
+//  response.writeHead(404);
+//  response.end();
+//});
 
+let httpsServer = https.createServer(httpsOptions, app);
+app.use(express.static('.', {fallthrough:true}));
 // Spin up the HTTPS server on the port assigned to this sample.
 // This will be turned into a WebSocket port very shortly.
 

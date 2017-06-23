@@ -35,7 +35,7 @@ var clientID = 0;
 //
 
 var mediaConstraints = {
-  audio: true,            // We want an audio track
+  audio: false,            // We want an audio track
   video: true             // ...and we want a video track
 };
 
@@ -53,7 +53,7 @@ var hasAddTrack = false;
 function log(text) {
   var time = new Date();
 
-  console.log("[" + time.toLocaleTimeString() + "] " + text);
+  console.log("[" + time.toLocaleTimeString() +'_Name_'+ myUsername+"] " + text);
 }
 
 // Output an error message to console.
@@ -258,7 +258,10 @@ function createPeerConnection() {
 
 function handleNegotiationNeededEvent() {
   log("*** Negotiation needed");
-
+  if (receivedOffer) {
+    log('negotiation already started, no need to start again');
+    return;
+  }
   log("---> Creating offer");
   myPeerConnection.createOffer().then(function(offer) {
     log("---> Creating new description object to send to remote peer");
@@ -485,6 +488,38 @@ function hangUpCall() {
   });
 }
 
+function getDeviceConstraints() {
+  return navigator.mediaDevices.enumerateDevices()
+  .then((devices) => {
+    let deviceId = null;
+    let index = 0;    
+    console.log('----- devices:', devices);
+    for (let i=0; i<devices.length; i++) {
+      let info = devices[i];
+      if (info.kind === 'videoinput' &&
+          (info.label === 'Intel RealSense 3D Camera ZR300 (8086:0acb)' || info.label === 'Intel RealSense 3D Camera R200 (8086:0a80)')) {
+        console.log('--- device: ', index, info.deviceId);
+        if (index === 2) {
+          console.log('--- choose device: ', info.deviceId);
+          return {
+            video: {
+              deviceId: { exact: info.deviceId},
+              width: 320,
+              height: 240
+            }
+          }
+        }
+        index++;
+      }
+    }
+    return {
+      audio: false,
+      video: true
+    };
+  });
+}
+
+
 // Handle a click on an item in the user list by inviting the clicked
 // user to video chat. Note that we don't actually send a message to
 // the callee here -- calling RTCPeerConnection.addStream() issues
@@ -520,9 +555,9 @@ function invite(evt) {
     // RTCPeerConnection.
 
     log("Requesting webcam access...");
-
-    navigator.mediaDevices.getUserMedia(mediaConstraints)
-    .then(function(localStream) {
+    getDeviceConstraints().then((constraints) => {
+      return navigator.mediaDevices.getUserMedia(constraints);
+    }).then(function(localStream) {
       log("-- Local video stream obtained");
       document.getElementById("local_video").src = window.URL.createObjectURL(localStream);
       document.getElementById("local_video").srcObject = localStream;
@@ -534,6 +569,7 @@ function invite(evt) {
         log("-- Adding stream to the RTCPeerConnection");
         myPeerConnection.addStream(localStream);
       }
+      
     })
     .catch(handleGetUserMediaError);
   }
@@ -542,9 +578,10 @@ function invite(evt) {
 // Accept an offer to video chat. We configure our local settings,
 // create our RTCPeerConnection, get and attach our local camera
 // stream, then create and send an answer to the caller.
-
+let receivedOffer = false;
 function handleVideoOfferMsg(msg) {
   var localStream = null;
+  receivedOffer = true;
 
   targetUsername = msg.name;
 
